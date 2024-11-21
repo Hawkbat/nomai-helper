@@ -1,0 +1,133 @@
+
+body {
+    font-family: "Space Mono";
+    height: 100%;
+}
+
+.ship-log-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: black;
+    color: white;
+}
+
+.ship-log-pivot {
+    position: absolute;
+    transform-origin: top left;
+}
+
+.entry-pivot {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: visible;
+    width: 0;
+    height: 0;
+}
+
+.entry-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 110px;
+    min-height: 145px;
+    padding: 2px;
+    gap: 4px;
+    background: var(--curiosity-color);
+}
+
+.entry-card:hover {
+    cursor: pointer;
+    background: var(--curiosity-highlight-color);
+}
+
+.entry-name {
+    font-size: 14px;
+    line-height: 1.25;
+    font-weight: 700;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1 0 0;
+    color: black;
+}
+
+.entry-photo {
+    width: 106px;
+    height: 106px;
+    background-color: black;
+    background-size: contain;
+}
+
+.entry-count {
+    position: absolute;
+    left: 115px;
+    top: 0px;
+    font-size: 16px;
+}
+
+.entry-card.curiosity {
+    transform: scale(2.0);
+}
+
+.entry-card.curiosity-subentry {
+    transform: scale(0.8);
+}
+
+.entry-card.subentry {
+    transform: scale(0.6);
+}
+
+.rumor-pivot {
+    position: absolute;
+    overflow: visible;
+    width: 0;
+    transform-origin: center bottom;
+}
+
+.rumor-pivot:hover {
+    cursor: pointer;
+}
+
+.rumor-line {
+    position: absolute;
+    left: -2.5px;
+    width: 5px;
+    height: 100%;
+}
+
+.rumor-arrow {
+    position: absolute;
+    top: calc(50% - 15px);
+    left: -15px;
+    width: 30px;
+    height: 30px;
+    background-size: contain;
+    background-blend-mode: multiply;
+    mask-size: 100% 100%;
+    mask-mode: alpha;
+}
+
+.rumor-arrow-back {
+    position: absolute;
+    top: calc(50% - 15px);
+    left: -15px;
+    width: 30px;
+    height: 30px;
+    background-size: contain;
+}
+
+.rumor-line, .rumor-arrow {
+    background-color: rgba(127, 128, 123, 1);
+}
+
+.rumor-pivot:hover > .rumor-line,
+.rumor-pivot:hover > .rumor-arrow {
+    background-color: rgba(226, 228, 218, 1);
+}

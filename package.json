@@ -1,0 +1,84 @@
+{
+  "name": "nomai-helper",
+  "displayName": "Nomai Helper",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nomai-helper",
+          "title": "Nomai Helper",
+          "icon": "resources/images/nomai.svg"
+        }
+      ]
+    },
+    "views": {
+      "nomai-helper": [
+        {
+          "id": "new-horizons",
+          "name": "New Horizons",
+          "type": "tree",
+          "icon": "resources/images/nomai.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "nomai-helper.addShipLogEntry",
+        "title": "Add Ship Log Entry",
+        "icon": "$(add)"
+      },
+      {
+        "command": "nomai-helper.openTreeItem",
+        "title": "Open"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "nomai-helper.addShipLogEntry",
+          "group": "inline",
+          "when": "view == new-horizons && viewItem == planet"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:esbuild-webview": "node esbuild-webview.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.9",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.95.0",
+    "@types/vscode-webview": "^1.57.5",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.13.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@vscode/webview-ui-toolkit": "^1.4.0",
+    "json5": "^2.2.3"
+  }
+}
