@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { NomaiTreeItem, NomaiTreeViewDataProvider, PlanetTreeItem } from "./treeview"
-import { onProjectFileChange, projectActions } from "./project"
-import { populateShipLogWebView } from "./webview"
+import { onProjectChanged, onProjectFileChange, onSelectionChanged, projectActions } from "./project"
+import { populatePropEditorWebView, populateShipLogWebView } from "./webview"
 
 export function activate(context: vscode.ExtensionContext) {
 	const xmlWatcher = vscode.workspace.createFileSystemWatcher("**/*.xml")
@@ -16,13 +16,34 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(jsonWatcher.onDidChange(e => onProjectFileChange(e, "change")))
 	context.subscriptions.push(jsonWatcher.onDidDelete(e => onProjectFileChange(e, "delete")))
 
+	context.subscriptions.push(onSelectionChanged)
+	context.subscriptions.push(onProjectChanged)
+
 	const treeView = vscode.window.createTreeView("new-horizons", {
 		treeDataProvider: new NomaiTreeViewDataProvider(),
 		showCollapseAll: true,
 	})
 	context.subscriptions.push(treeView)
+	context.subscriptions.push(treeView.onDidChangeSelection(({ selection }) => {
+		if (selection.length) {
+			projectActions.selectTreeItem(selection[0])
+		} else {
+			projectActions.selectTreeItem(null)
+		}
+	}))
+	context.subscriptions.push(onSelectionChanged.event(item => {
+		if (item && (treeView.selection.length !== 1 || treeView.selection[0] !== item)) {
+			treeView.reveal(item, { select: true })
+		}
+	}))
 
-	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.openItem", (item: NomaiTreeItem) => projectActions.openTreeItem(item)))
+	vscode.window.registerWebviewViewProvider("prop-editor", {
+		resolveWebviewView(webviewView, ctx, token) {
+			populatePropEditorWebView(context.extensionUri, webviewView.webview)
+		},
+	})
+
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.openTreeItem", (item: NomaiTreeItem) => projectActions.openTreeItem(item)))
 	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogEntry", (planet: PlanetTreeItem) => projectActions.addShipLogEntry(planet)))
 
 	vscode.workspace.findFiles("**/*.xml").then(uris => uris.forEach(uri => onProjectFileChange(uri, "find")))

@@ -26,27 +26,34 @@
         {
           "id": "new-horizons",
           "name": "New Horizons",
-          "type": "tree",
-          "icon": "resources/images/nomai.svg"
+          "type": "tree"
+        },
+        {
+          "id": "prop-editor",
+          "name": "Properties",
+          "type": "webview"
         }
       ]
     },
     "commands": [
       {
+        "command": "nomai-helper.openTreeItem",
+        "title": "Open"
+      },
+      {
         "command": "nomai-helper.addShipLogEntry",
         "title": "Add Ship Log Entry",
         "icon": "$(add)"
-      },
-      {
-        "command": "nomai-helper.openTreeItem",
-        "title": "Open"
       }
     ],
     "menus": {
       "view/item/context": [
         {
+          "command": "nomai-helper.openTreeItem",
+          "group": "inline"
+        },
+        {
           "command": "nomai-helper.addShipLogEntry",
-          "group": "inline",
           "when": "view == new-horizons && viewItem == planet"
         }
       ]

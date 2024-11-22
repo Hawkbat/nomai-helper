@@ -1,6 +1,5 @@
 
 body {
-    font-family: "Space Mono";
     height: 100%;
 }
 
@@ -13,6 +12,7 @@ body {
     overflow: auto;
     background-color: black;
     color: white;
+    font-family: "Space Mono";
 }
 
 .ship-log-pivot {
@@ -130,4 +130,14 @@ body {
 .rumor-pivot:hover > .rumor-line,
 .rumor-pivot:hover > .rumor-arrow {
     background-color: rgba(226, 228, 218, 1);
+}
+
+.prop-editor {
+    display: flex;
+    flex-flow: column;
+}
+
+.prop-field {
+    display: flex;
+    flex-flow: column;
 }

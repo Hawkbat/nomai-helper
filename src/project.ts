@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { ManifestJsonData, AddonManifestJsonData, StarSystemJsonData, PlanetJsonData, ShipLogXmlData, DialogueXmlData, TextXmlData, TranslationJsonData, shipLogXmlDefinition, dialogueXmlDefinition, textXmlDefinition, serializeShipLogXml } from "./outerwilds"
 import { XmlElementNode, XmlModel, XmlNodeDefinition, xmlToJson, XmlToken } from "./xml"
-import type { NomaiTreeItem, PlanetTreeItem } from "./treeview"
+import { getCachedTreeItem, type NomaiTreeItem, type PlanetTreeItem } from "./treeview"
 import { getFileNameWithoutExt } from "./utils"
 import { JsonModel, JsonNode, JsonObjectNode, JsonToken } from "./json"
 
@@ -31,16 +31,19 @@ interface ProjectXmlSubAsset<TParent extends ProjectXmlFileAsset<any> | ProjectX
 	data: TData
 }
 
-export interface ProjectManifest extends ProjectJsonFileAsset<ManifestJsonData> { }
-export interface ProjectAddonManifest extends ProjectJsonFileAsset<AddonManifestJsonData> { }
-export interface ProjectStarSystem extends ProjectJsonFileAsset<StarSystemJsonData> { }
-export interface ProjectPlanet extends ProjectJsonFileAsset<PlanetJsonData> { }
-export interface ProjectShipLogFile extends ProjectXmlFileAsset<ShipLogXmlData> { }
-export interface ProjectDialogue extends ProjectXmlFileAsset<DialogueXmlData> { }
-export interface ProjectText extends ProjectXmlFileAsset<TextXmlData> { }
-export interface ProjectTranslation extends ProjectJsonFileAsset<TranslationJsonData> { }
+export interface ProjectManifest extends ProjectJsonFileAsset<ManifestJsonData> { type: "manifest" }
+export interface ProjectAddonManifest extends ProjectJsonFileAsset<AddonManifestJsonData> { type: "addon-manifest" }
+export interface ProjectStarSystem extends ProjectJsonFileAsset<StarSystemJsonData> { type: "system" }
+export interface ProjectPlanet extends ProjectJsonFileAsset<PlanetJsonData> { type: "planet" }
+export interface ProjectShipLogFile extends ProjectXmlFileAsset<ShipLogXmlData> { type: "ship-logs" }
+export interface ProjectDialogue extends ProjectXmlFileAsset<DialogueXmlData> { type: "dialogue" }
+export interface ProjectText extends ProjectXmlFileAsset<TextXmlData> { type: "text" }
+export interface ProjectTranslation extends ProjectJsonFileAsset<TranslationJsonData> { type: "translation" }
+
+export type ProjectAsset = ProjectManifest | ProjectAddonManifest | ProjectStarSystem | ProjectPlanet | ProjectShipLogFile | ProjectDialogue | ProjectText | ProjectTranslation
 
 export interface ProjectState {
+	selection: NomaiTreeItem | null
 	manifests: ProjectManifest[]
 	addonManifests: ProjectAddonManifest[]
 	systems: ProjectStarSystem[]
@@ -56,6 +59,7 @@ type JsonProjectKeys = { [K in keyof ProjectState]-?: ProjectState[K] extends { 
 type XmlProjectKeys = { [K in keyof ProjectState]-?: ProjectState[K] extends { model: XmlModel }[] ? K : never }[keyof ProjectState]
 
 export const project: ProjectState = {
+	selection: null,
 	manifests: [],
 	addonManifests: [],
 	systems: [],
@@ -67,48 +71,67 @@ export const project: ProjectState = {
 }
 
 const diagCollection = vscode.languages.createDiagnosticCollection("nomai-helper")
+
+export const onSelectionChanged = new vscode.EventEmitter<NomaiTreeItem | null>()
 export const onProjectChanged = new vscode.EventEmitter<NomaiTreeItem | undefined>()
 
-function updateProject() {
-	onProjectChanged.fire(undefined)
+function updateProject(...updatedAssets: NomaiTreeItem[]) {
+	if (updatedAssets.length) {
+		updatedAssets.forEach(a => onProjectChanged.fire(a))
+		onProjectChanged.fire(undefined)
+	} else {
+		onProjectChanged.fire(undefined)
+	}
 	validateProject()
 }
 
-function updateJsonProjectFile<K extends JsonProjectKeys>(key: K, uri: vscode.Uri, op: "find" | "create" | "change" | "delete", populate: (model: JsonModel, data: ProjectState[K][number]["data"]) => Omit<ProjectState[K][number], "uri" | "model" | "data">) {
+function updateJsonProjectFile<K extends JsonProjectKeys>(key: K, type: ProjectState[K][number]["type"], uri: vscode.Uri, op: "find" | "create" | "change" | "delete", populate: (model: JsonModel, data: ProjectState[K][number]["data"]) => Omit<ProjectState[K][number], "type" | "uri" | "model" | "data">) {
 	if (op === "delete") {
-		project[key] = project[key].filter(f => f.uri !== uri) as ProjectState[K]
-		updateProject()
+		const item = project[key].find(i => i.uri === uri)
+		if (item) {
+			project[key] = project[key].filter(f => f.uri !== uri) as ProjectState[K]
+			updateProject({ type: item.type, uri: item.uri })
+		}
 	} else {
 		vscode.workspace.openTextDocument(uri).then(doc => {
 			const model = new JsonModel(doc.getText())
 			const data: any = model.root.value
 			project[key] = project[key].filter(m => m.uri !== uri).concat([{
+				type,
 				uri,
 				model,
 				data,
 				...populate(model, data),
-			}]) as ProjectState[K]
-			updateProject()
+			} as ProjectState[K][number]]) as ProjectState[K]
+			if (op === "create") {
+				updateProject()
+			} else {
+				updateProject({ type, uri })
+			}
 		})
 	}
 }
 
-function updateXmlProjectFile<K extends XmlProjectKeys>(key: K, uri: vscode.Uri, op: "find" | "create" | "change" | "delete", definition: XmlNodeDefinition, populate: (model: XmlModel, data: ProjectState[K][number]["data"]) => Omit<ProjectState[K][number], "uri" | "model" | "data">) {
+function updateXmlProjectFile<K extends XmlProjectKeys>(key: K, type: ProjectState[K][number]["type"], uri: vscode.Uri, op: "find" | "create" | "change" | "delete", definition: XmlNodeDefinition, populate: (model: XmlModel, data: ProjectState[K][number]["data"]) => Omit<ProjectState[K][number], "type" | "uri" | "model" | "data">) {
 	if (op === "delete") {
-		project[key] = project[key].filter(f => f.uri !== uri) as ProjectState[K]
-		updateProject()
+		const item = project[key].find(i => i.uri === uri)
+		if (item) {
+			project[key] = project[key].filter(f => f.uri !== uri) as ProjectState[K]
+			updateProject({ type: item.type, uri: item.uri })
+		}
 	} else {
 		vscode.workspace.openTextDocument(uri).then(doc => {
 			const model = new XmlModel(doc.getText())
 			const data: any = xmlToJson(definition, [model.root])
 			if (data) {
 				project[key] = project[key].filter(m => m.uri !== uri).concat([{
+					type,
 					uri,
 					model,
 					data,
 					...populate(model, data),
-				}]) as ProjectState[K]
-				updateProject()
+				} as ProjectState[K][number]]) as ProjectState[K]
+				updateProject({ type, uri })
 			}
 		})
 	}
@@ -118,27 +141,27 @@ export function onProjectFileChange(uri: vscode.Uri, op: "find" | "create" | "ch
 	const parts = uri.path.replaceAll("\\", "/").split("/")
 	const filename = parts.pop()
 	if (filename === "manifest.json") {
-		updateJsonProjectFile("manifests", uri, op, () => ({ }))
+		updateJsonProjectFile("manifests", "manifest", uri, op, () => ({ }))
 	} else if (filename === "addon-manifest.json") {
-		updateJsonProjectFile("addonManifests", uri, op, () => ({ }))
+		updateJsonProjectFile("addonManifests", "addon-manifest", uri, op, () => ({ }))
 	} else if (filename?.toLowerCase().endsWith(".json")) {
 		while (parts.length) {
 			const part = parts.pop()?.toLowerCase()
 			if (part === "planets") {
-				updateJsonProjectFile("planets", uri, op, () => ({ }))
+				updateJsonProjectFile("planets", "planet", uri, op, () => ({ }))
 				break
 			} else if (part === "systems") {
-				updateJsonProjectFile("systems", uri, op, () => ({ }))
+				updateJsonProjectFile("systems", "system", uri, op, () => ({ }))
 				break
 			} else if (part === "translations") {
-				updateJsonProjectFile("translations", uri, op, () => ({ }))
+				updateJsonProjectFile("translations", "translation", uri, op, () => ({ }))
 				break
 			}
 		}
 	} else if (filename?.toLowerCase().endsWith(".xml")) {
-		updateXmlProjectFile("shipLogs", uri, op, shipLogXmlDefinition, () => ({ }))
-		updateXmlProjectFile("dialogues", uri, op, dialogueXmlDefinition, () => ({ }))
-		updateXmlProjectFile("texts", uri, op, textXmlDefinition, () => ({ }))
+		updateXmlProjectFile("shipLogs", "ship-logs", uri, op, shipLogXmlDefinition, () => ({ }))
+		updateXmlProjectFile("dialogues", "dialogue", uri, op, dialogueXmlDefinition, () => ({ }))
+		updateXmlProjectFile("texts", "text", uri, op, textXmlDefinition, () => ({ }))
 	}
 }
 
@@ -213,11 +236,16 @@ export const projectActions = {
 		const shipLogs = project.shipLogs.find(s => s.uri === uri)
 		return shipLogs ? project.planets.find(p => p.data.ShipLog?.xmlFile ? shipLogs.uri.path.endsWith(p.data.ShipLog.xmlFile) : false) : null
 	},
+	selectTreeItem: (item: NomaiTreeItem | null) => {
+		project.selection = item
+		onSelectionChanged.fire(item)
+	},
 	openTreeItem: (item: NomaiTreeItem) => {
+		item = getCachedTreeItem(item)
 		switch (item.type) {
 			case "category":
 				break
-			case "shiplog-entry": {
+			case "ship-log-entry": {
 				const shipLogs = project.shipLogs.find(s => s.uri === item.uri)
 				if (!shipLogs) {
 					break
@@ -226,7 +254,7 @@ export const projectActions = {
 				vscode.commands.executeCommand("vscode.openWith", item.uri, "default", { preview: true, selection: getNodeRange(node) } satisfies vscode.TextDocumentShowOptions)
 				break
 			}
-			case "shiplog-explore-fact": {
+			case "ship-log-explore-fact": {
 				const shipLogs = project.shipLogs.find(s => s.uri === item.uri)
 				if (!shipLogs) {
 					break
@@ -236,7 +264,7 @@ export const projectActions = {
 				vscode.commands.executeCommand("vscode.openWith", item.uri, "default", { preview: true, selection: getNodeRange(factNode) } satisfies vscode.TextDocumentShowOptions)
 				break
 			}
-			case "shiplog-rumor-fact": {
+			case "ship-log-rumor-fact": {
 				const shipLogs = project.shipLogs.find(s => s.uri === item.uri)
 				if (!shipLogs) {
 					break
