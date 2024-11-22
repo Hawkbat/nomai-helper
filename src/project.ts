@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { ManifestJsonData, AddonManifestJsonData, StarSystemJsonData, PlanetJsonData, ShipLogXmlData, DialogueXmlData, TextXmlData, TranslationJsonData, shipLogXmlDefinition, dialogueXmlDefinition, textXmlDefinition, serializeShipLogXml } from "./outerwilds"
 import { XmlElementNode, XmlModel, XmlNodeDefinition, xmlToJson, XmlToken } from "./xml"
-import { getCachedTreeItem, type NomaiTreeItem, type PlanetTreeItem } from "./treeview"
+import { getCachedTreeItem, ShipLogEntryTreeItem, type NomaiTreeItem, type PlanetTreeItem } from "./treeview"
 import { getFileNameWithoutExt } from "./utils"
 import { JsonModel, JsonNode, JsonObjectNode, JsonToken } from "./json"
 
@@ -327,5 +327,19 @@ export const projectActions = {
 			edit.replace(shipLog.uri, new vscode.Range(0, 0, 99999999, 99999999), serializeShipLogXml(data) ?? "", { label: "Add Ship Log Entry", needsConfirmation: false })
 		}
 		vscode.workspace.applyEdit(edit).then(() => updateProject())
-	}
+	},
+	addShipLogRumorFact: (entryTreeItem: ShipLogEntryTreeItem) => {
+		const shipLog = project.shipLogs.find(s => s.uri === entryTreeItem.uri)
+		if (!shipLog) {
+			return
+		}
+		vscode.window.showErrorMessage("Action is not yet implemented")
+	},
+	addShipLogExploreFact: (entryTreeItem: ShipLogEntryTreeItem) => {
+		const shipLog = project.shipLogs.find(s => s.uri === entryTreeItem.uri)
+		if (!shipLog) {
+			return
+		}
+		vscode.window.showErrorMessage("Action is not yet implemented")
+	},
 }

@@ -129,8 +129,12 @@ export class NomaiTreeViewDataProvider implements vscode.TreeDataProvider<NomaiT
 		const hasChildren = !["manifest", "addon-manifest", "ship-log-rumor-fact", "ship-log-explore-fact", "dialogue-node", "text-node", "translation"].includes(element.type)
 		const treeItem = new vscode.TreeItem(element.uri, hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None)
 
+		treeItem.command = {
+			command: "nomai-helper.treeItemClick",
+			arguments: [element],
+			title: "Click",
+		}
 		treeItem.contextValue = element.type
-		treeItem.description = true
 		treeItem.label = (() => {
 			switch (element.type) {
 				case "system": return projectTranslate(project.systems.find(s => s.uri === element.uri)?.data.name ?? getFileNameWithoutExt(element.uri), "UI")

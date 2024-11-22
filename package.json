@@ -38,23 +38,42 @@
     "commands": [
       {
         "command": "nomai-helper.openTreeItem",
-        "title": "Open"
+        "title": "Open in Text Editor"
+      },
+      {
+        "command": "nomai-helper.treeItemClick",
+        "title": "Select"
       },
       {
         "command": "nomai-helper.addShipLogEntry",
-        "title": "Add Ship Log Entry",
-        "icon": "$(add)"
+        "title": "Add Ship Log Entry"
+      },
+      {
+        "command": "nomai-helper.addShipLogRumorFact",
+        "title": "Add Ship Log Rumor Fact"
+      },
+      {
+        "command": "nomai-helper.addShipLogExploreFact",
+        "title": "Add Ship Log Explore Fact"
       }
     ],
     "menus": {
       "view/item/context": [
         {
-          "command": "nomai-helper.openTreeItem",
-          "group": "inline"
-        },
-        {
           "command": "nomai-helper.addShipLogEntry",
           "when": "view == new-horizons && viewItem == planet"
+        },
+        {
+          "command": "nomai-helper.addShipLogRumorFact",
+          "when": "view == new-horizons && viewItem == ship-log-entry"
+        },
+        {
+          "command": "nomai-helper.addShipLogExploreFact",
+          "when": "view == new-horizons && viewItem == ship-log-entry"
+        },
+        {
+          "command": "nomai-helper.openTreeItem",
+          "when": "view == new-horizons"
         }
       ]
     }

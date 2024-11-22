@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { NomaiTreeItem, NomaiTreeViewDataProvider, PlanetTreeItem } from "./treeview"
+import { NomaiTreeItem, NomaiTreeViewDataProvider, PlanetTreeItem, ShipLogEntryTreeItem } from "./treeview"
 import { onProjectChanged, onProjectFileChange, onSelectionChanged, projectActions } from "./project"
 import { populatePropEditorWebView, populateShipLogWebView } from "./webview"
 
@@ -24,6 +24,17 @@ export function activate(context: vscode.ExtensionContext) {
 		showCollapseAll: true,
 	})
 	context.subscriptions.push(treeView)
+	let lastClickTarget: NomaiTreeItem | null = null
+	let lastClickTime = Date.now()
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.treeItemClick", (item: NomaiTreeItem) => {
+		if (item !== lastClickTarget) {
+			lastClickTarget = item
+			lastClickTime = Date.now()
+		} else if (Date.now() - lastClickTime < 500) {
+			lastClickTarget = null
+			projectActions.openTreeItem(item)
+		}
+	}))
 	context.subscriptions.push(treeView.onDidChangeSelection(({ selection }) => {
 		if (selection.length) {
 			projectActions.selectTreeItem(selection[0])
@@ -45,6 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.openTreeItem", (item: NomaiTreeItem) => projectActions.openTreeItem(item)))
 	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogEntry", (planet: PlanetTreeItem) => projectActions.addShipLogEntry(planet)))
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogRumorFact", (entry: ShipLogEntryTreeItem) => projectActions.addShipLogRumorFact(entry)))
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogExploreFact", (entry: ShipLogEntryTreeItem) => projectActions.addShipLogExploreFact(entry)))
 
 	vscode.workspace.findFiles("**/*.xml").then(uris => uris.forEach(uri => onProjectFileChange(uri, "find")))
 	vscode.workspace.findFiles("**/*.json").then(uris => uris.forEach(uri => onProjectFileChange(uri, "find")))
