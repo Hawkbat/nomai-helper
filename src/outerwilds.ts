@@ -211,6 +211,7 @@ export interface PlanetJsonData {
 
 export interface StarSystemJsonData {
     name?: string
+    destroyStockPlanets?: boolean
     entryPositions?: {
         id?: string
         position?: {

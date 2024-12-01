@@ -139,7 +139,7 @@ export class NomaiTreeViewDataProvider implements vscode.TreeDataProvider<NomaiT
 			switch (element.type) {
 				case "system": return projectTranslate(project.systems.find(s => s.uri === element.uri)?.data.name ?? getFileNameWithoutExt(element.uri), "UI")
 				case "planet": return projectTranslate(project.planets.find(s => s.uri === element.uri)?.data.name ?? getFileNameWithoutExt(element.uri), "UI")
-				case "ship-log-entry": return projectTranslate(project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.find(e => e.ID === element.id)?.ID ?? project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.flatMap(e => e.Entry ?? []).find(e => e.ID === element.id)?.ID ?? "(ID-less Entry)", "ShipLog")
+				case "ship-log-entry": return projectTranslate(project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.find(e => e.ID === element.id)?.Name ?? project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.flatMap(e => e.Entry ?? []).find(e => e.ID === element.id)?.Name ?? "(Nameless Entry)", "ShipLog")
 				case "ship-log-rumor-fact": return project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.find(e => e.ID === element.entryID)?.RumorFact?.find(f => f.ID === element.id)?.ID ?? project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.flatMap(e => e.Entry ?? []).find(e => e.ID === element.entryID)?.RumorFact?.find(f => f.ID === element.id)?.ID ?? "(ID-less Rumor Fact)"
 				case "ship-log-explore-fact": return project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.find(e => e.ID === element.entryID)?.ExploreFact?.find(f => f.ID === element.id)?.ID ?? project.shipLogs.find(s => s.uri === element.uri)?.data.Entry?.flatMap(e => e.Entry ?? []).find(e => e.ID === element.entryID)?.ExploreFact?.find(f => f.ID === element.id)?.ID ?? "(ID-less Explore Fact)"
 				case "dialogue-node": return project.dialogues.find(d => d.uri === element.uri)?.data.DialogueNode?.find(n => n.Name === element.name)?.Name ?? "(ID-less Dialogue Node)"
@@ -181,7 +181,7 @@ export class NomaiTreeViewDataProvider implements vscode.TreeDataProvider<NomaiT
 				}
 				case "system": return projectActions.findPlanetsBySystem(element.uri).map(p => ({ type: "planet", uri: p.uri }))
 				case "planet":
-					const shipLogs = projectActions.findPlanetShipLogs(element.uri)
+					const shipLogs = projectActions.findShipLogsByPlanet(element.uri)
 					return shipLogs?.data.Entry?.map(e => ({ type: "ship-log-entry", uri: shipLogs?.uri, id: e.ID ?? "" })) ?? []
 				case "ship-logs":
 					return project.shipLogs.find(s => s.uri === element.uri)?.data?.Entry?.map(e => ({ type: "ship-log-entry", uri: element.uri, id: e.ID ?? "" })) ?? []
@@ -217,13 +217,13 @@ export class NomaiTreeViewDataProvider implements vscode.TreeDataProvider<NomaiT
 					const system = projectActions.findSystemByPlanet(element.uri)
 					return system ? { type: "system", uri: system.uri } : null
 				case "ship-logs":
-					const planet = projectActions.findShipLogsPlanet(element.uri)
+					const planet = projectActions.findPlanetByShipLogs(element.uri)
 					return planet ? { type: "planet", uri: planet.uri } : null
 				case "ship-log-entry":
 					if (element.parentID) {
 						return { type: "ship-log-entry", uri: element.uri, id: element.parentID }
 					} else {
-						const planet = projectActions.findShipLogsPlanet(element.uri)
+						const planet = projectActions.findPlanetByShipLogs(element.uri)
 						return planet ? { type: "planet", uri: planet.uri } : null
 					}
 				case "ship-log-explore-fact":

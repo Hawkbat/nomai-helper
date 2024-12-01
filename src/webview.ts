@@ -1,7 +1,8 @@
 import * as vscode from "vscode"
-import { onProjectChanged, onSelectionChanged, project, projectActions } from "./project"
+import { onProjectChanged, onSelectionChanged, project, projectActions, projectTranslate } from "./project"
 import { BASE_GAME_CURIOSITY_COLORS, BASE_GAME_ENTRIES } from "./data"
 import { getFileNameWithoutExt } from "./utils"
+import { NomaiTreeItem } from "./treeview"
 
 export type WebviewType = "shiplog-viewer" | "prop-editor"
 
@@ -213,95 +214,100 @@ function populateWebView(extensionUri: vscode.Uri, webview: vscode.Webview, type
 	`
 }
 
-function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode.Webview) {
+function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode.Webview, systemUri: vscode.Uri | null | undefined, entryID: string | null | undefined) {
+    const disposables: vscode.Disposable[] = []
+
     populateWebView(extensionUri, webview, "shiplog-viewer")
 
     const sendMessage = (msg: WebviewMessage) => webview.postMessage(msg)
 
     const sendShipLogs = () => {
-        const colors: Record<string, CuriosityColors | undefined> = { ...BASE_GAME_CURIOSITY_COLORS }
-        for (const system of project.systems) {
-            for (const curiosity of system.data.curiosities ?? []) {
-                if (curiosity.id) {
-                    colors[curiosity.id] = {
-                        color: { r: 0, g: 0, b: 0, a: 255, ...curiosity.color },
-                        highlightColor: { r: 0, g: 0, b: 0, a: 255, ...curiosity.highlightColor },
-                    }
+        const colors: Record<string, CuriosityColors | undefined> = { }
+        const entries: ShipLogEntry[] = []
+        const photos: Record<string, string> = {}
+
+        const photoUri = vscode.Uri.joinPath(extensionUri, "resources", "sprites", "DEFAULT_PHOTO.png")
+        photos[""] = webview.asWebviewUri(photoUri).toString()
+
+        const system = project.systems.find(s => s.uri === systemUri)
+
+        const isSolarSystem = system ? (system.data.name ?? getFileNameWithoutExt(system.uri)) === "SolarSystem" : true
+        const destroyStockPlanets = system?.data.destroyStockPlanets ?? !isSolarSystem
+        if (!system || !destroyStockPlanets) {
+            Object.assign(colors, BASE_GAME_CURIOSITY_COLORS)
+            
+            entries.push(...BASE_GAME_ENTRIES)
+
+            for (const entry of BASE_GAME_ENTRIES) {
+                const photoUri = vscode.Uri.joinPath(extensionUri, "resources", "sprites", `${entry.id}.png`)
+                photos[entry.id] = webview.asWebviewUri(photoUri).toString()
+            }
+        }
+
+        if (!system) {
+            sendMessage({ type: "shipLogs", colors, entries, photos })
+            return
+        }
+
+        for (const curiosity of system.data.curiosities ?? []) {
+            if (curiosity.id) {
+                colors[curiosity.id] = {
+                    color: { r: 0, g: 0, b: 0, a: 255, ...curiosity.color },
+                    highlightColor: { r: 0, g: 0, b: 0, a: 255, ...curiosity.highlightColor },
                 }
             }
         }
 
-        const entries: ShipLogEntry[] = [...BASE_GAME_ENTRIES]
-
-        for (const shipLog of project.shipLogs) {
-            const planet = project.planets.find(p => p.data.ShipLog?.xmlFile && shipLog.uri.path.endsWith(p.data.ShipLog?.xmlFile))
-            if (!planet) {
-                continue
-            }
-            const system = project.systems.find(s => (s.data.name ?? getFileNameWithoutExt(s.uri) === (planet.data.starSystem ?? "SolarSystem")))
-            if (!system) {
+        const planets = projectActions.findPlanetsBySystem(system.uri)
+        for (const planet of planets) {
+            const shipLog = projectActions.findShipLogsByPlanet(planet.uri)
+            if (!shipLog) {
                 continue
             }
             const mainEntries = shipLog.data.Entry ?? []
             const subEntries = mainEntries.flatMap(e => e.Entry ?? [])
             const allEntries = mainEntries.concat(subEntries)
 
-            entries.push(...allEntries.map(e => {
-                const translatedName = e.Name ? project.translations.find(t => t.uri.path.endsWith("english.json"))?.data.ShipLogDictionary?.[e.Name] : undefined
-                const position = system.data.entryPositions?.find(p => e.ID === p.id)?.position
-                const parent = subEntries.includes(e) ? mainEntries.find(m => m.Entry?.includes(e))?.ID : undefined
+            for (const entry of allEntries) {
+                const translatedName = projectTranslate(entry.Name ?? "(Nameless)", "ShipLog")
+                const position = system.data.entryPositions?.find(p => entry.ID === p.id)?.position
+                const parent = subEntries.includes(entry) ? mainEntries.find(m => m.Entry?.includes(entry))?.ID : undefined
 
-                const entry: ShipLogEntry = {
-                    id: e.ID ?? "",
-                    name: translatedName ?? e.Name ?? "",
-                    curiosity: e.Curiosity,
-                    isCuriosity: e.IsCuriosity,
+                entries.push({
+                    id: entry.ID ?? "",
+                    name: translatedName,
+                    curiosity: entry.Curiosity,
+                    isCuriosity: entry.IsCuriosity,
                     astroObject: planet.data.name ?? getFileNameWithoutExt(planet.uri),
                     position: [position?.x ?? 0, position?.y ?? 0],
                     parent,
                     facts: {
-                        explore: e.ExploreFact?.map(f => ({
+                        explore: entry.ExploreFact?.map(f => ({
                             id: f.ID ?? "",
                             text: f.Text ?? "",
                         })) ?? [],
-                        rumor: e.RumorFact?.map(f => ({
+                        rumor: entry.RumorFact?.map(f => ({
                             id: f.ID ?? "",
                             text: f.Text ?? "",
                             sourceID: f.SourceID,
                         })) ?? [],
                     },
-                }
-                return entry
-            }))
-        }
-
-        const photos: Record<string, string> = {}
-
-        const photoUri = vscode.Uri.joinPath(extensionUri, "resources", "sprites", "DEFAULT_PHOTO.png")
-        photos[""] = webview.asWebviewUri(photoUri).toString()
-
-        for (const entry of BASE_GAME_ENTRIES) {
-            const photoUri = vscode.Uri.joinPath(extensionUri, "resources", "sprites", `${entry.id}.png`)
-            photos[entry.id] = webview.asWebviewUri(photoUri).toString()
-        }
-        for (const shipLog of project.shipLogs) {
-            const planet = project.planets.find(p => p.data.ShipLog?.xmlFile && shipLog.uri.path.endsWith(p.data.ShipLog?.xmlFile))
-            if (!planet) {
-                continue
-            }
-            const entries = shipLog.data.Entry ?? []
-            const subEntries = entries.flatMap(e => e.Entry ?? [])
-            const allEntries = entries.concat(subEntries)
-            for (const entry of allEntries) {
+                })
+                
                 const photoUri = vscode.Uri.joinPath(project.manifests?.[0].uri ?? planet.uri, "..", planet.data.ShipLog?.spriteFolder ?? ".", `${entry.ID}.png`)
                 photos[entry.ID ?? ""] = webview.asWebviewUri(photoUri).toString()
             }
         }
 
         sendMessage({ type: "shipLogs", colors, entries, photos })
+
+        if (entryID) {
+            sendMessage({ type: "selectShipLog", id: entryID })
+            entryID = null
+        }
     }
 
-    onSelectionChanged.event(item => {
+    disposables.push(onSelectionChanged.event(item => {
         if (!item) {
             return
         }
@@ -314,13 +320,13 @@ function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode.Webvie
                 sendMessage({ type: "selectShipLog", id: item.entryID })
                 break
         }
-    })
+    }))
 
-    onProjectChanged.event(item => {
+    disposables.push(onProjectChanged.event(item => {
         sendShipLogs()
-    })
+    }))
 
-    webview.onDidReceiveMessage((msg: WebviewMessage) => {
+    disposables.push(webview.onDidReceiveMessage((msg: WebviewMessage) => {
         switch (msg.type) {
             case "selectShipLog":
                 for (const shipLog of project.shipLogs) {
@@ -358,17 +364,23 @@ function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode.Webvie
                 sendShipLogs()
                 break
         }
-    })
+    }))
+
+    return vscode.Disposable.from(...disposables)
 }
 
 function populatePropEditorWebView(extensionUri: vscode.Uri, webview: vscode.Webview) {
+    const disposables: vscode.Disposable[] = []
+
     populateWebView(extensionUri, webview, "prop-editor")
 
     const sendMessage = (msg: WebviewMessage) => webview.postMessage(msg)
 
-    webview.onDidReceiveMessage((msg: WebviewMessage) => {
+    disposables.push(webview.onDidReceiveMessage((msg: WebviewMessage) => {
 
-    })
+    }))
+
+    return vscode.Disposable.from(...disposables)
 }
 
 function getNonce() {
@@ -380,14 +392,65 @@ function getNonce() {
     return text
 }
 
+const shipLogPanels = new Map<string, vscode.WebviewPanel>()
+
 export function activateWebView(context: vscode.ExtensionContext) {
 	vscode.window.registerWebviewViewProvider("prop-editor", {
 		resolveWebviewView(webviewView, ctx, token) {
-			populatePropEditorWebView(context.extensionUri, webviewView.webview)
+            const customView = populatePropEditorWebView(context.extensionUri, webviewView.webview)
+            webviewView.onDidDispose(() => customView.dispose())
 		},
 	})
 
+    vscode.commands.registerCommand("nomai-helper.openShipLogViewer", (item: NomaiTreeItem) => {
+        const systemUri = (() => {
+            switch (item.type) {
+                case "system":
+                    return item.uri
+                case "planet":
+                    return projectActions.findSystemByPlanet(item.uri)?.uri
+                case "ship-logs":
+                case "ship-log-entry":
+                case "ship-log-rumor-fact":
+                case "ship-log-explore-fact":
+                    const planet = projectActions.findPlanetByShipLogs(item.uri)
+                    return planet ? projectActions.findSystemByPlanet(planet.uri)?.uri : null
+            }
+            return null
+        })()
 
-	const panel = vscode.window.createWebviewPanel("nomai-helper.ship-log-viewer", "Ship Log Viewer", { viewColumn: vscode.ViewColumn.Active })
-	populateShipLogWebView(context.extensionUri, panel.webview)
+        const entryID = (() => {
+            switch (item.type) {
+                case "ship-log-entry":
+                    return item.id
+                case "ship-log-explore-fact":
+                case "ship-log-rumor-fact":
+                    return item.entryID
+            }
+            return null
+        })()
+
+        const system = project.systems.find(s => s.uri === systemUri)
+        const systemName = system ? projectTranslate(system.data.name ?? getFileNameWithoutExt(system.uri), "UI") : "SolarSystem"
+
+        const panelKey = system?.uri.toString() ?? "SolarSystem"
+
+        const existingPanel = shipLogPanels.get(panelKey)
+        if (existingPanel) {
+            existingPanel.reveal()
+            if (entryID) {
+                existingPanel.webview.postMessage({ type: "selectShipLog", id: entryID } satisfies WebviewMessage)
+            }
+            return
+        }
+
+        const panel = vscode.window.createWebviewPanel("nomai-helper.ship-log-viewer", `${systemName} - Ship Log Viewer`, { viewColumn: vscode.ViewColumn.Active })
+        const customView = populateShipLogWebView(context.extensionUri, panel.webview, systemUri, entryID)
+
+        shipLogPanels.set(panelKey, panel)
+        panel.onDidDispose(() => {
+            customView.dispose()
+            shipLogPanels.delete(panelKey)
+        })
+    })
 }

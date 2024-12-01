@@ -228,11 +228,11 @@ export const projectActions = {
 		const system = project.systems.find(s => s.uri === uri)
 		return system ? project.planets.filter(p => (p.data.starSystem ?? "SolarSystem") === (system.data.name ?? getFileNameWithoutExt(system.uri))) : []
 	},
-	findPlanetShipLogs: (uri: vscode.Uri) => {
+	findShipLogsByPlanet: (uri: vscode.Uri) => {
 		const planet = project.planets.find(p => p.uri === uri)
 		return planet && planet.data.ShipLog?.xmlFile ? project.shipLogs.find(s => s.uri.path.endsWith(planet.data.ShipLog!.xmlFile!)) : null
 	},
-	findShipLogsPlanet: (uri: vscode.Uri) => {
+	findPlanetByShipLogs: (uri: vscode.Uri) => {
 		const shipLogs = project.shipLogs.find(s => s.uri === uri)
 		return shipLogs ? project.planets.find(p => p.data.ShipLog?.xmlFile ? shipLogs.uri.path.endsWith(p.data.ShipLog.xmlFile) : false) : null
 	},

@@ -55,6 +55,10 @@
       {
         "command": "nomai-helper.addShipLogExploreFact",
         "title": "Add Ship Log Explore Fact"
+      },
+      {
+        "command": "nomai-helper.openShipLogViewer",
+        "title": "Open Ship Log Viewer"
       }
     ],
     "menus": {
@@ -70,6 +74,10 @@
         {
           "command": "nomai-helper.addShipLogExploreFact",
           "when": "view == new-horizons && viewItem == ship-log-entry"
+        },
+        {
+          "command": "nomai-helper.openShipLogViewer",
+          "when": "view == new-horizons && (viewItem == system || viewItem == planet || viewItem == ship-logs || viewItem == ship-log-entry || viewItem == ship-log-rumor-fact || viewItem == ship-log-explore-fact)"
         },
         {
           "command": "nomai-helper.openTreeItem",
