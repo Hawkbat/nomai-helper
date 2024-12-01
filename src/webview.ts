@@ -213,7 +213,7 @@ function populateWebView(extensionUri: vscode.Uri, webview: vscode.Webview, type
 	`
 }
 
-export function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode.Webview) {
+function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode.Webview) {
     populateWebView(extensionUri, webview, "shiplog-viewer")
 
     const sendMessage = (msg: WebviewMessage) => webview.postMessage(msg)
@@ -361,7 +361,7 @@ export function populateShipLogWebView(extensionUri: vscode.Uri, webview: vscode
     })
 }
 
-export function populatePropEditorWebView(extensionUri: vscode.Uri, webview: vscode.Webview) {
+function populatePropEditorWebView(extensionUri: vscode.Uri, webview: vscode.Webview) {
     populateWebView(extensionUri, webview, "prop-editor")
 
     const sendMessage = (msg: WebviewMessage) => webview.postMessage(msg)
@@ -378,4 +378,16 @@ function getNonce() {
         text += possible.charAt(Math.floor(Math.random() * possible.length))
     }
     return text
+}
+
+export function activateWebView(context: vscode.ExtensionContext) {
+	vscode.window.registerWebviewViewProvider("prop-editor", {
+		resolveWebviewView(webviewView, ctx, token) {
+			populatePropEditorWebView(context.extensionUri, webviewView.webview)
+		},
+	})
+
+
+	const panel = vscode.window.createWebviewPanel("nomai-helper.ship-log-viewer", "Ship Log Viewer", { viewColumn: vscode.ViewColumn.Active })
+	populateShipLogWebView(context.extensionUri, panel.webview)
 }

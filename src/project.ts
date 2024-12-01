@@ -137,7 +137,7 @@ function updateXmlProjectFile<K extends XmlProjectKeys>(key: K, type: ProjectSta
 	}
 }
 
-export function onProjectFileChange(uri: vscode.Uri, op: "find" | "create" | "change" | "delete") {
+function onProjectFileChange(uri: vscode.Uri, op: "find" | "create" | "change" | "delete") {
 	const parts = uri.path.replaceAll("\\", "/").split("/")
 	const filename = parts.pop()
 	if (filename === "manifest.json") {
@@ -201,11 +201,11 @@ function validateProject() {
 		const diags: vscode.Diagnostic[] = []
 		const planet = project.planets.find(p => p.data.ShipLog?.xmlFile && s.uri.path.endsWith(p.data.ShipLog?.xmlFile))
 		if (!planet) {
-			diags.push(new vscode.Diagnostic(getNodeRange(s.model.root), "This ship log XML file is not referenced in any planet body JSON file's 'ShipLog.xmlFile' field"))
+			diags.push(new vscode.Diagnostic(getNodeRange(s.model.root), "This ship log XML file is not referenced in any planet body JSON file's 'ShipLog.xmlFile' field", vscode.DiagnosticSeverity.Warning))
 		} else {
 			const planetName = planet.data.name ?? getFileNameWithoutExt(planet.uri)
 			if (s.data.ID !== planetName && s.data.ID !== convertToAstroObjectName(planetName)) {
-				diags.push(new vscode.Diagnostic(getNodeRange(s.model.root.query("ID")), "'ID' element is missing or its value is not the planet's name ('name' field or filename without extension if not specified)"))
+				diags.push(new vscode.Diagnostic(getNodeRange(s.model.root.query("ID")), "'ID' element is missing or its value is not the planet's name ('name' field or filename without extension if not specified)", vscode.DiagnosticSeverity.Error))
 			}
 		}
 		diagCollection.set(s.uri, diags)
@@ -297,7 +297,7 @@ export const projectActions = {
 			return
 		}
 		const edit = new vscode.WorkspaceEdit()
-		const shipLog = project.shipLogs.find(s => s.data.ID === (planet.data.name ?? getFileNameWithoutExt(planet.uri)) || (planet.data.ShipLog?.xmlFile && s.uri.path.endsWith(planet.data.ShipLog.xmlFile)))
+		const shipLog = project.shipLogs.find(s => planet.data.ShipLog?.xmlFile && s.uri.path.endsWith(planet.data.ShipLog.xmlFile))
 		if (!shipLog) {
 			const uri = vscode.Uri.from({
 				...planet.uri,
@@ -342,4 +342,29 @@ export const projectActions = {
 		}
 		vscode.window.showErrorMessage("Action is not yet implemented")
 	},
+}
+
+export function activateProject(context: vscode.ExtensionContext) {
+	const xmlWatcher = vscode.workspace.createFileSystemWatcher("**/*.xml")
+	context.subscriptions.push(xmlWatcher)
+	context.subscriptions.push(xmlWatcher.onDidCreate(e => onProjectFileChange(e, "create")))
+	context.subscriptions.push(xmlWatcher.onDidChange(e => onProjectFileChange(e, "change")))
+	context.subscriptions.push(xmlWatcher.onDidDelete(e => onProjectFileChange(e, "delete")))
+
+	const jsonWatcher = vscode.workspace.createFileSystemWatcher("**/*.json")
+	context.subscriptions.push(jsonWatcher)
+	context.subscriptions.push(jsonWatcher.onDidCreate(e => onProjectFileChange(e, "create")))
+	context.subscriptions.push(jsonWatcher.onDidChange(e => onProjectFileChange(e, "change")))
+	context.subscriptions.push(jsonWatcher.onDidDelete(e => onProjectFileChange(e, "delete")))
+
+	context.subscriptions.push(onSelectionChanged)
+	context.subscriptions.push(onProjectChanged)
+
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.openTreeItem", (item: NomaiTreeItem) => projectActions.openTreeItem(item)))
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogEntry", (planet: PlanetTreeItem) => projectActions.addShipLogEntry(planet)))
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogRumorFact", (entry: ShipLogEntryTreeItem) => projectActions.addShipLogRumorFact(entry)))
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.addShipLogExploreFact", (entry: ShipLogEntryTreeItem) => projectActions.addShipLogExploreFact(entry)))
+
+	vscode.workspace.findFiles("**/*.xml").then(uris => uris.forEach(uri => onProjectFileChange(uri, "find")))
+	vscode.workspace.findFiles("**/*.json").then(uris => uris.forEach(uri => onProjectFileChange(uri, "find")))
 }

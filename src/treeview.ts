@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { onProjectChanged, project, projectActions, projectTranslate } from "./project"
+import { onProjectChanged, onSelectionChanged, project, projectActions, projectTranslate } from "./project"
 import { getFileNameWithoutExt } from "./utils"
 
 interface BaseTreeItem {
@@ -245,4 +245,35 @@ export class NomaiTreeViewDataProvider implements vscode.TreeDataProvider<NomaiT
 	resolveTreeItem(item: vscode.TreeItem, element: NomaiTreeItem, token: vscode.CancellationToken): vscode.ProviderResult<vscode.TreeItem> {
 		return undefined
 	}
+}
+
+export function activateTreeView(context: vscode.ExtensionContext) {
+	const treeView = vscode.window.createTreeView("new-horizons", {
+		treeDataProvider: new NomaiTreeViewDataProvider(),
+		showCollapseAll: true,
+	})
+	context.subscriptions.push(treeView)
+	let lastClickTarget: NomaiTreeItem | null = null
+	let lastClickTime = Date.now()
+	context.subscriptions.push(vscode.commands.registerCommand("nomai-helper.treeItemClick", (item: NomaiTreeItem) => {
+		if (item !== lastClickTarget) {
+			lastClickTarget = item
+			lastClickTime = Date.now()
+		} else if (Date.now() - lastClickTime < 500) {
+			lastClickTarget = null
+			projectActions.openTreeItem(item)
+		}
+	}))
+	context.subscriptions.push(treeView.onDidChangeSelection(({ selection }) => {
+		if (selection.length) {
+			projectActions.selectTreeItem(selection[0])
+		} else {
+			projectActions.selectTreeItem(null)
+		}
+	}))
+	context.subscriptions.push(onSelectionChanged.event(item => {
+		if (item && (treeView.selection.length !== 1 || treeView.selection[0] !== item)) {
+			treeView.reveal(item, { select: true })
+		}
+	}))
 }
